@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Pool } = require('pg')
 let express = require('express');
 let app = express();
-let port = process.env.PORT || 3000;
+let port = process.env.PLATZ_IKO_BACKEND_PORT || 5000;
 let connectionString = process.env.INDEXER_DB_CONN;
 console.log(connectionString)
 
