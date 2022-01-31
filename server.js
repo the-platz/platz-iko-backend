@@ -14,7 +14,42 @@ app.use(function (req, res, next) {
   next();
 });
 
-app.get('/donation_history', function (req, res) {
+app.get('/transaction/receipts', function (req, res) {
+    let tx_hash = req.query.tx_hash
+
+    const pool = new Pool({
+      connectionString,
+    })
+
+    const tx_status_query = {
+      name: 'tx_status_query',
+      text: `SELECT t.transaction_hash, r.receipt_id , eo.status
+      FROM public.transactions t
+      right join public.receipts r  on r.originated_from_transaction_hash = t.transaction_hash
+      inner join public.execution_outcomes eo on eo.receipt_id = r.receipt_id
+      where transaction_hash = $1;`,
+      values: [tx_hash]
+    }
+
+    pool.query(tx_status_query, (err2, result) => {
+      if (err2) {
+        res.status(500).json({
+          success: false,
+          data: err2
+        })
+
+        return
+      }
+
+      res.status(200).json({
+        success: true,
+        data: result.rows
+      })
+      pool.end()
+    })
+})
+
+app.get('/transaction/donation', function (req, res) {
     let account_id = req.query.account_id
     let limit = parseInt(req.query.limit)
     let offset = parseInt(req.query.offset)
@@ -37,7 +72,7 @@ app.get('/donation_history', function (req, res) {
 
     pool.query(donation_history_query, (err, result) => {
       if (err) {
-        res.json({
+        res.status(500).json({
           success: false,
           data: err
         })
@@ -45,7 +80,7 @@ app.get('/donation_history', function (req, res) {
         return
       }
 
-      res.json({
+      res.status(200).json({
         success: true,
         data: result.rows
       })
