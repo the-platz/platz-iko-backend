@@ -33,6 +33,7 @@ app.get('/transactions/donation', function (req, res) {
       select txs.transaction_hash,
         txs.receiver_account_id,
         txs.block_timestamp,
+        txs.donation_amount,
         txs.statuses,
         case when txs.statuses like 'FAILURE%' 
         then true else false
@@ -41,6 +42,7 @@ app.get('/transactions/donation', function (req, res) {
         select t_sub.transaction_hash, 
           (array_agg(t_sub.receiver_account_id))[1] as receiver_account_id, 
           (array_agg(t_sub.block_timestamp))[1] as block_timestamp,
+          ta.args -> 'deposit' as donation_amount,
           string_agg(distinct eo.status::text, ',') as statuses
         from public.transactions t_sub
         inner join public.transaction_actions ta on t_sub.transaction_hash = ta.transaction_hash
@@ -49,7 +51,7 @@ app.get('/transactions/donation', function (req, res) {
         where t_sub.signer_account_id = $1
           and t_sub.receiver_account_id like $2
           and ta.args -> 'method_name' = '"donate"'
-        group by t_sub.transaction_hash, t_sub.receiver_account_id, t_sub.block_timestamp
+        group by t_sub.transaction_hash, t_sub.receiver_account_id, t_sub.block_timestamp, ta.args
         having string_agg(distinct eo.status::text, ',') like $3
         ) as txs
       order by txs.block_timestamp desc
