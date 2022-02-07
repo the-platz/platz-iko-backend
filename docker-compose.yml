@@ -3,6 +3,6 @@ services:
   platz-iko-backend:
     build: .
     ports:
-      - "5000:${PLATZ_IKO_BACKEND_PORT}"
+      - "${PLATZ_IKO_BACKEND_PORT}:${PLATZ_IKO_BACKEND_PORT}"
     environment:
       - INDEXER_DB_CONN=${INDEXER_DB_CONN}
