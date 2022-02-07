@@ -14,6 +14,56 @@ app.use(function (req, res, next) {
   next();
 });
 
+app.get('/mycampaign', function(req, res) {
+  const my_account_id = `"${req.query.account_id}"`
+  const iko_master_account_id = process.env.IKO_MASTER_ACCOUNT_ID
+  const iko_sub_account_id = `%.${process.env.IKO_MASTER_ACCOUNT_ID}`
+
+  const pool = new Pool({
+    connectionString,
+  })
+
+  const my_campaigns_query = {
+    name: 'my_campaigns_query',
+    text: `
+    -- user's campaigns
+    select r.receiver_account_id as campaign_account_id,
+      ara.args -> 'args_json' -> 'campaign_beneficiary' as campaign_beneficiary
+    from public.access_keys ak 
+    inner join receipts r on r.receipt_id = ak.created_by_receipt_id
+    inner join public.action_receipt_actions ara on ara.receipt_id = r.receipt_id 
+    where ak.deleted_by_receipt_id is null
+      -- check validity of campaign
+      and r.predecessor_account_id = $1 --'iko.theplatz.testnet' 
+      and r.receiver_account_id like $2 --'%.iko.theplatz.testnet'
+      and ara."action_kind" = 'FUNCTION_CALL'
+      and (ara.args -> 'method_name')::text = '"new"'  -- casting to text results in -> "data inside the quote"
+      and (ara.args -> 'args_json' -> 'campaign_beneficiary')::text = $3 -- '"phatngluu.testnet"';`,
+      values: [
+        iko_master_account_id, 
+        iko_sub_account_id, 
+        my_account_id
+      ]
+    }
+
+    pool.query(my_campaigns_query, (err, result) => {
+      if (err) {
+        res.status(500).json({
+          success: false,
+          data: err
+        })
+
+        return
+      }
+
+      res.status(200).json({
+        success: true,
+        data: result.rows
+      })
+      pool.end()
+    })
+})
+
 app.get('/transactions/donation', function (req, res) {
     let sender_account_id_filter = req.query.account_id
     // TODO: env var
