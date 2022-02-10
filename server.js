@@ -14,8 +14,9 @@ app.use(function (req, res, next) {
   next();
 });
 
-app.get('/mycampaign', function(req, res) {
-  const my_account_id = `"${req.query.account_id}"`
+app.get('/campaigns/account/:accountId', function(req, res) {
+  const account_id = `"${req.params.accountId}"`
+  console.log(account_id)
   const iko_master_account_id = process.env.IKO_MASTER_ACCOUNT_ID
   const iko_sub_account_id = `%.${process.env.IKO_MASTER_ACCOUNT_ID}`
 
@@ -42,7 +43,7 @@ app.get('/mycampaign', function(req, res) {
       values: [
         iko_master_account_id, 
         iko_sub_account_id, 
-        my_account_id
+        account_id
       ]
     }
 
