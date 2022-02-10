@@ -14,7 +14,7 @@ app.use(function (req, res, next) {
   next();
 });
 
-app.get('/campaigns/account/:accountId', function(req, res) {
+app.get('/campaigns/account/:accountId', function (req, res) {
   const account_id = `"${req.params.accountId}"`
   console.log(account_id)
   const iko_master_account_id = process.env.IKO_MASTER_ACCOUNT_ID
@@ -40,47 +40,97 @@ app.get('/campaigns/account/:accountId', function(req, res) {
       and ara."action_kind" = 'FUNCTION_CALL'
       and (ara.args -> 'method_name')::text = '"new"'  -- casting to text results in -> "data inside the quote"
       and (ara.args -> 'args_json' -> 'campaign_beneficiary')::text = $3 -- '"phatngluu.testnet"';`,
-      values: [
-        iko_master_account_id, 
-        iko_sub_account_id, 
-        account_id
-      ]
+    values: [
+      iko_master_account_id,
+      iko_sub_account_id,
+      account_id
+    ]
+  }
+
+  pool.query(my_campaigns_query, (err, result) => {
+    if (err) {
+      res.status(500).json({
+        success: false,
+        data: err
+      })
+
+      return
     }
 
-    pool.query(my_campaigns_query, (err, result) => {
-      if (err) {
-        res.status(500).json({
-          success: false,
-          data: err
-        })
-
-        return
-      }
-
-      res.status(200).json({
-        success: true,
-        data: result.rows
-      })
-      pool.end()
+    res.status(200).json({
+      success: true,
+      data: result.rows
     })
+    pool.end()
+  })
+})
+
+app.get('/campaigns/topDonors', function (req, res) {
+  const campaign_id = req.query.campaign_id
+  const TOP_DONORS_LIMIT = parseInt(process.env.CAMPAIGN_TOP_DONORS_LIMIT)
+
+  const pool = new Pool({
+    connectionString,
+  })
+
+  const campaign_top_donors_query = {
+    name: 'campaign_top_donors_query',
+    text: `
+    -- top donors of a campaign
+    select s.signer_account_id, sum(s.donation_amount) as total_donation_amount
+    from (
+      select t.transaction_hash, t.signer_account_id, cast(ta.args -> 'deposit' #>> '{}' as numeric) as donation_amount
+      from public.transactions t
+      inner join transaction_actions ta on t.transaction_hash = ta.transaction_hash
+      right join public.receipts r  on r.originated_from_transaction_hash = t.transaction_hash
+      inner join public.execution_outcomes eo on eo.receipt_id = r.receipt_id
+      where t.receiver_account_id = $1
+        and ta.args -> 'method_name' = '"donate"'
+      group by t.transaction_hash, t.signer_account_id, ta.args, eo.status
+      having string_agg(distinct eo.status::text, ',') like 'SUCCESS_VALUE') s
+    group by s.signer_account_id
+    order by total_donation_amount desc
+    limit $2`,
+    values: [
+      campaign_id,
+      TOP_DONORS_LIMIT
+    ]
+  }
+
+  pool.query(campaign_top_donors_query, (err, result) => {
+    if (err) {
+      res.status(500).json({
+        success: false,
+        data: err
+      })
+
+      return
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result.rows
+    })
+    pool.end()
+  })
 })
 
 app.get('/transactions/donation', function (req, res) {
-    let sender_account_id_filter = req.query.account_id
-    // TODO: env var
-    let receiver_account_id_filter = `%${process.env.IKO_MASTER_ACCOUNT_ID}`
-    let tx_status_filter = 
-      req.query.includeFailedTxs == 'true' ? '%SUCCESS_VALUE' : 'SUCCESS_VALUE'
-    let limit = parseInt(req.query.limit)
-    let offset = parseInt(req.query.offset)
+  let sender_account_id_filter = req.query.account_id
+  // TODO: env var
+  let receiver_account_id_filter = `%${process.env.IKO_MASTER_ACCOUNT_ID}`
+  let tx_status_filter =
+    req.query.includeFailedTxs == 'true' ? '%SUCCESS_VALUE' : 'SUCCESS_VALUE'
+  let limit = parseInt(req.query.limit)
+  let offset = parseInt(req.query.offset)
 
-    const pool = new Pool({
-      connectionString,
-    })
+  const pool = new Pool({
+    connectionString,
+  })
 
-    const donation_history_query = {
-      name: 'donation_history_query',
-      text: `
+  const donation_history_query = {
+    name: 'donation_history_query',
+    text: `
       select txs.transaction_hash,
         txs.receiver_account_id,
         txs.block_timestamp,
@@ -107,31 +157,31 @@ app.get('/transactions/donation', function (req, res) {
         ) as txs
       order by txs.block_timestamp desc
       limit $4 offset $5;`,
-      values: [
-        sender_account_id_filter,
-        receiver_account_id_filter,
-        tx_status_filter,
-        limit,
-        offset
-      ]
+    values: [
+      sender_account_id_filter,
+      receiver_account_id_filter,
+      tx_status_filter,
+      limit,
+      offset
+    ]
+  }
+
+  pool.query(donation_history_query, (err, result) => {
+    if (err) {
+      res.status(500).json({
+        success: false,
+        data: err
+      })
+
+      return
     }
 
-    pool.query(donation_history_query, (err, result) => {
-      if (err) {
-        res.status(500).json({
-          success: false,
-          data: err
-        })
-
-        return
-      }
-
-      res.status(200).json({
-        success: true,
-        data: result.rows
-      })
-      pool.end()
+    res.status(200).json({
+      success: true,
+      data: result.rows
     })
+    pool.end()
+  })
 })
 
 app.listen(port);
