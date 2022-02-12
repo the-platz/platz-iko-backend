@@ -5,7 +5,7 @@ const { Pool } = require('pg')
 let connectionString = process.env.INDEXER_DB_CONN;
 
 router.get('/donation', function (req, res) {
-    let sender_account_id_filter = req.query.account_id
+    let sender_account_id_filter = req.query.accountId
     // TODO: env var
     let receiver_account_id_filter = `%${process.env.IKO_MASTER_ACCOUNT_ID}`
     let tx_status_filter =

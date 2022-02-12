@@ -56,7 +56,7 @@ router.get('/account/:accountId', function (req, res) {
 })
 
 router.get('/topDonors', function (req, res) {
-    const campaign_id = req.query.campaign_id
+    const campaign_id = req.query.campaignId
     const TOP_DONORS_LIMIT = parseInt(process.env.CAMPAIGN_TOP_DONORS_LIMIT)
 
     const pool = new Pool({
